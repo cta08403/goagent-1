@@ -36,11 +36,11 @@ func (p StripPlugin) Handle(c *PluginContext, rw http.ResponseWriter, req *http.
 	if err := tlsConn.Handshake(); err != nil {
 		c.H.Log.Printf("tlsConn.Handshake error: %s", err)
 	}
-	if pl, ok := c.H.L.(PushListener); ok {
+	if pl, ok := c.H.Listener.(PushListener); ok {
 		pl.Push(tlsConn, nil)
 		return
 	}
-	loConn, err := net.Dial("tcp", c.H.L.Addr().String())
+	loConn, err := net.Dial("tcp", c.H.Listener.Addr().String())
 	if err != nil {
 		c.H.Log.Printf("net.Dial failed: %s", err)
 		return

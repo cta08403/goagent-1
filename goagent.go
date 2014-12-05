@@ -16,20 +16,25 @@ func main() {
 	if err != nil {
 		log.Fatalf("Listen(\"tcp\", %s) failed: %s", addr, err)
 	}
-	h := Handler{}
-	h.RegisterPlugin("direct", &DirectPlugin{})
-	h.RegisterPlugin("strip", &StripPlugin{})
-	h.StackFilter(&DirectFilter{})
-	h.StackFilter(&StripFilter{})
-	h.Net = &SimpleNetwork{}
-	h.L = ln
-	h.Log = log.New(os.Stderr, "INFO - ", 3)
+	h := Handler{
+		Listener: ln,
+		Log:      log.New(os.Stderr, "INFO - ", 3),
+		Net:      &SimpleNetwork{},
+		Plugins: map[string]Plugin{
+			"direct": &DirectPlugin{},
+			"strip":  &StripPlugin{},
+		},
+		RequestFilters: []RequestFilter{
+			&StripFilter{},
+			&DirectFilter{},
+		},
+	}
 	s := &http.Server{
 		Handler:        h,
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
-	h.Log.Printf("ListenAndServe on %s\n", h.L.Addr().String())
-	h.Log.Fatal(s.Serve(h.L))
+	h.Log.Printf("ListenAndServe on %s\n", h.Listener.Addr().String())
+	h.Log.Fatal(s.Serve(h.Listener))
 }

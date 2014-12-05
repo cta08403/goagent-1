@@ -18,16 +18,11 @@ type Net2 interface {
 	GetAddressAlias(addr string) (alias string)
 }
 
-type Filter interface {
-}
-
 type RequestFilter interface {
-	Filter
 	Filter(req *http.Request) (pluginName string, pluginArgs *http.Header, err error)
 }
 
 type ResponseFilter interface {
-	Filter
 	Filter(req *http.Response) (newReq *http.Response, err error)
 }
 
@@ -37,8 +32,8 @@ type PushListener interface {
 }
 
 type listenerAcceptTuple struct {
-	C net.Conn
-	E error
+	c net.Conn
+	e error
 }
 
 type listener struct {
@@ -85,7 +80,7 @@ func Listen(network string, addr string) (net.Listener, error) {
 
 func (l listener) Accept() (net.Conn, error) {
 	t := <-l.ch
-	return t.C, t.E
+	return t.c, t.e
 }
 
 func (l listener) CLose() error {
@@ -102,12 +97,12 @@ func (l listener) Push(conn net.Conn, err error) {
 
 type Handler struct {
 	http.Handler
-	L               net.Listener
-	Net             Net2
+	Listener        net.Listener
 	Log             *log.Logger
-	requestFilters  []RequestFilter
-	responseFilters []ResponseFilter
-	plugins         map[string]Plugin
+	Net             Net2
+	Plugins         map[string]Plugin
+	RequestFilters  []RequestFilter
+	ResponseFilters []ResponseFilter
 }
 
 type PluginContext struct {
@@ -119,33 +114,16 @@ type Plugin interface {
 	Handle(*PluginContext, http.ResponseWriter, *http.Request)
 }
 
-func (h *Handler) RegisterPlugin(name string, plugin Plugin) {
-	if h.plugins == nil {
-		h.plugins = make(map[string]Plugin)
-	}
-	h.plugins[name] = plugin
-}
-
-func (h *Handler) StackFilter(filter Filter) {
-	if reqFilter, ok := filter.(RequestFilter); ok {
-		h.requestFilters = append(h.requestFilters, reqFilter)
-	} else if resFilter, ok := filter.(ResponseFilter); ok {
-		h.responseFilters = append(h.responseFilters, resFilter)
-	} else {
-		h.Log.Fatalf("%s is not a valid filter", filter)
-	}
-}
-
 func (h Handler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
-	for i := len(h.requestFilters) - 1; i >= 0; i-- {
-		name, args, err := h.requestFilters[i].Filter(req)
+	for _, f := range h.RequestFilters {
+		name, args, err := f.Filter(req)
 		if err != nil {
 			h.Log.Fatalf("ServeHTTP error: %v", err)
 		}
 		if name == "" {
 			continue
 		}
-		if plugin, ok := h.plugins[name]; ok {
+		if plugin, ok := h.Plugins[name]; ok {
 			context := &PluginContext{&h, args}
 			plugin.Handle(context, rw, req)
 			break

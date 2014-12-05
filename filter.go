@@ -18,7 +18,11 @@ type StripFilter struct {
 
 func (d *StripFilter) Filter(req *http.Request) (pluginName string, pluginArgs *http.Header, err error) {
 	if req.Method == "CONNECT" {
-		return "strip", nil, nil
+		args := http.Header{
+			"Foo": []string{"bar"},
+			"key": []string{"value"},
+		}
+		return "strip", &args, nil
 	}
 	return "", nil, nil
 }
