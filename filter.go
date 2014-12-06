@@ -4,19 +4,27 @@ import (
 	"net/http"
 )
 
-type DirectFilter struct {
+type DirectRequestFilter struct {
 	RequestFilter
 }
 
-func (d *DirectFilter) Filter(req *http.Request) (pluginName string, pluginArgs *http.Header, err error) {
+func (d *DirectRequestFilter) Filter(req *http.Request) (pluginName string, pluginArgs *http.Header, err error) {
 	return "direct", nil, nil
 }
 
-type StripFilter struct {
+type DirectResponseFilter struct {
 	RequestFilter
 }
 
-func (d *StripFilter) Filter(req *http.Request) (pluginName string, pluginArgs *http.Header, err error) {
+func (d *DirectResponseFilter) Filter(req *http.Request, res *http.Response) (pluginName string, pluginArgs *http.Header, err error) {
+	return "direct", nil, nil
+}
+
+type StripRequestFilter struct {
+	RequestFilter
+}
+
+func (d *StripRequestFilter) Filter(req *http.Request) (pluginName string, pluginArgs *http.Header, err error) {
 	if req.Method == "CONNECT" {
 		args := http.Header{
 			"Foo": []string{"bar"},

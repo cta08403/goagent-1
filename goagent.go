@@ -20,13 +20,19 @@ func main() {
 		Listener: ln,
 		Log:      log.New(os.Stderr, "INFO - ", 3),
 		Net:      &SimpleNetwork{},
-		Plugins: map[string]Plugin{
-			"direct": &DirectPlugin{},
-			"strip":  &StripPlugin{},
+		RequestPlugins: map[string]RequestPlugin{
+			"direct": &DirectRequestPlugin{},
+			"strip":  &StripRequestPlugin{},
+		},
+		ResponsePlugins: map[string]ResponsePlugin{
+			"direct": &DirectResponsePlugin{},
 		},
 		RequestFilters: []RequestFilter{
-			&StripFilter{},
-			&DirectFilter{},
+			&StripRequestFilter{},
+			&DirectRequestFilter{},
+		},
+		ResponseFilters: []ResponseFilter{
+			&DirectResponseFilter{},
 		},
 	}
 	s := &http.Server{

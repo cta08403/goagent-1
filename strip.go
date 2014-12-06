@@ -2,49 +2,48 @@ package main
 
 import (
 	"crypto/tls"
+	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
 )
 
-type StripPlugin struct {
-	Plugin
+type StripRequestPlugin struct {
+	RequestPlugin
 }
 
-func (p StripPlugin) Handle(c *PluginContext, rw http.ResponseWriter, req *http.Request) {
+func (p StripRequestPlugin) HandleRequest(c *PluginContext, rw http.ResponseWriter, req *http.Request) (*http.Response, error) {
 	hijacker, ok := rw.(http.Hijacker)
 	if !ok {
-		c.H.Log.Printf("http.ResponseWriter does not implments Hijacker")
-		return
+		return nil, errors.New("http.ResponseWriter does not implments Hijacker")
 	}
 	conn, _, err := hijacker.Hijack()
 	if err != nil {
-		c.H.Log.Printf("http.ResponseWriter Hijack failed: %s", err)
-		return
+		return nil, errors.New(fmt.Sprintf("http.ResponseWriter Hijack failed: %s", err))
 	}
 	conn.Write([]byte("HTTP/1.1 200 OK\r\n\r\n"))
 	c.H.Log.Printf("%s \"STRIP %s %s %s\" - -", req.RemoteAddr, req.Method, req.Host, req.Proto)
 	cert, err := tls.LoadX509KeyPair("./certs/.google.com.crt", "./certs/.google.com.crt")
 	if err != nil {
-		c.H.Log.Printf("tls.LoadX509KeyPair failed: %s", err)
-		return
+		return nil, errors.New(fmt.Sprintf("tls.LoadX509KeyPair failed: %s", err))
 	}
 	tlsConfig := &tls.Config{
 		Certificates: []tls.Certificate{cert},
 		ClientAuth:   tls.VerifyClientCertIfGiven}
 	tlsConn := tls.Server(conn, tlsConfig)
 	if err := tlsConn.Handshake(); err != nil {
-		c.H.Log.Printf("tlsConn.Handshake error: %s", err)
+		return nil, errors.New(fmt.Sprintf("tlsConn.Handshake error: %s", err))
 	}
 	if pl, ok := c.H.Listener.(PushListener); ok {
 		pl.Push(tlsConn, nil)
-		return
+		return nil, nil
 	}
 	loConn, err := net.Dial("tcp", c.H.Listener.Addr().String())
 	if err != nil {
-		c.H.Log.Printf("net.Dial failed: %s", err)
-		return
+		return nil, errors.New(fmt.Sprintf("net.Dial failed: %s", err))
 	}
 	go io.Copy(loConn, tlsConn)
-	io.Copy(tlsConn, loConn)
+	go io.Copy(tlsConn, loConn)
+	return nil, nil
 }
